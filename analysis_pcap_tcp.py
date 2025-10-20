@@ -33,6 +33,9 @@ class Flow:
         self.triple_dup_retx = 0
         self.timeout_retx = 0
 
+        self.closed = False
+        self.fin_seen = set()
+
     # put a packet in the flow 
     def add_packet(self, pkt: Packet):
         self.packets.append(pkt)
@@ -40,6 +43,12 @@ class Flow:
             self.flow_start = pkt.ts
         self.flow_end = pkt.ts
         self.sender_bytes += pkt.payload_len
+        if pkt.flags & dpkt.tcp.TH_FIN:
+            self.fin_seen.add(pkt.src)
+            if len(self.fin_seen) == 2:
+                self.closed = True
+        if pkt.flags & dpkt.tcp.TH_RST:
+            self.closed = True
 
     def sender_packets(self, sender_ip: str):
         return [p for p in self.packets if p.src == sender_ip]
@@ -77,11 +86,13 @@ class Flow_Table:
     #it will make the flow if it doesnt exit
     def get_flow(self, src, sport, dst, dport): 
         fid = self.make_flow_id(src, sport, dst, dport)
+        #this logic should be added to flows
         if fid not in self.flows:
             self.flows[fid] = Flow(src, sport, dst, dport)
         return self.flows[fid]
 
     def add_packet(self, pkt: Packet):
+        #this will be changed to a call to flows' add packet
         flow = self.get_flow(pkt.src, pkt.sport, pkt.dst, pkt.dport)
         flow.add_packet(pkt)
 
