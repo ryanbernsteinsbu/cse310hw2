@@ -51,8 +51,20 @@ class Flow:
         return (f"Flow({self.src}:{self.sport} -> {self.dst}:{self.dport}, "
                 f"{len(self.packets)} packets)")
 
-
 class Flows:
+    def __init__(self, src, sport, dst, dport):
+        self.list = []
+        self.src = src
+        self.sport = sport
+        self.dst = dst
+        self.dport = dport
+    def add_packet(self, pkt: Packet):
+        if not self.list:
+            self.list.append(Flow(self.src, self.sport, self.dst, self.dport))
+        current_flow = self.list[-1]
+
+
+class Flow_Table:
     def __init__(self):
         # {flow_id: Flow}
         self.flows = {}
@@ -83,7 +95,7 @@ class Flows:
         return f"Flows(total_flows={len(self.flows)})"
 
 def read_pcap_tcp(pcap_file):
-    flows = Flows() #create flows obj
+    flow_table = Flow_Table() #create flows obj
 
     with open(pcap_file, 'rb') as f:
         pcap = dpkt.pcap.Reader(f)
@@ -117,12 +129,12 @@ def read_pcap_tcp(pcap_file):
                 pkt = Packet(ts, src_ip, dst_ip, sport, dport, seq, ack, flags, win, payload_len)
 
                 # add to Flows
-                flows.add_packet(pkt)
+                flow_table.add_packet(pkt)
 
             except Exception as e:
                 print(f"Error processing packet: {e}")
 
-    return flows
+    return flow_table
 
 if __name__ == "__main__":
     flows = read_pcap_tcp("assignment2.pcap")
