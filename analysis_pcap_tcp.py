@@ -69,9 +69,11 @@ class Flows:
         self.dport = dport
     def add_packet(self, pkt: Packet):
         if not self.list:
-            self.list.append(Flow(self.src, self.sport, self.dst, self.dport))
-        current_flow = self.list[-1]
-
+            if pkt.flags & dpkt.tcp.TH_SYN and not pkt.flags & dpkt.tcp.TH_ACK:
+                self.list.append(Flow(self.src, self.sport, self.dst, self.dport))
+            else:
+                return  
+        current_list = self
 
 class Flow_Table:
     def __init__(self):
