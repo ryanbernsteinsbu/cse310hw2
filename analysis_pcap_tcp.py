@@ -105,23 +105,20 @@ class Flow:
             return []
 
         cwnd_estimates = []
-        bytes_in_flight = 0
-        acked_seq = 0
+        inflight = set()
         next_rtt_mark = self.flow_start + rtt
 
         for pkt in self.packets:
             if pkt.src == self.src:
-                # add bytes if sender
-                bytes_in_flight += pkt.payload_len
+                # add packet if sender
+                inflight.add((pkt.seq, pkt.seq + pkt.payload_len))
             else:
                 # subtract bytes and update if reciever
                 if pkt.flags & dpkt.tcp.TH_ACK:
-                    acked_bytes = max(0, pkt.ack - acked_seq) # how many new bytes acked
-                    bytes_in_flight = max(0, bytes_in_flight - acked_bytes) # how many bytes left in flight
-                    acked_seq = max(acked_seq, pkt.ack)# last acked value
-
+                    inflight = { (s, e) for (s, e) in inflight if e > pkt.ack } #remove all entries below ack
             # check if passed the next RTT mark
-            if pkt.ts >= next_rtt_mark:
+            if pkt.ts >= next_rtt_mark: # make it after every ack
+                bytes_in_flight = sum(e - s for (s, e) in inflight)
                 cwnd_estimates.append(bytes_in_flight)
                 next_rtt_mark += rtt
                 if len(cwnd_estimates) >= windows:
